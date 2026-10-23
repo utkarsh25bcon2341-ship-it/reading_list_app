@@ -1,198 +1,164 @@
-import { useCallback, useEffect, useState } from "react";
-import type { Book, ReadingStatus } from "./types";
-import { STATUS_FILTERS, STATUS_OPTIONS, STATUS_COLORS } from "./types";
-import "./App.css";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Book, loadBooks, saveBooks, isDuplicate } from "./storage";
 
-const STORAGE_KEY = "reading-list-books";
+type Status = Book["status"];
+type Filter = "all" | Status;
 
-function loadBooks(): Book[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (b): b is Book =>
-        b &&
-        typeof b.id === "string" &&
-        typeof b.title === "string" &&
-        STATUS_OPTIONS.includes(b.status)
-    );
-  } catch {
-    return [];
-  }
-}
+const STATUS_OPTIONS: Status[] = ["want", "reading", "finished"];
+const STATUS_LABELS: Record<Status, string> = {
+  want: "Want to Read",
+  reading: "Reading",
+  finished: "Finished",
+};
 
 export default function App() {
-  const [books, setBooks] = useState<Book[]>(() => loadBooks());
-  const [title, setTitle] = useState("");
-  const [filter, setFilter] = useState<"All" | ReadingStatus>("All");
+  const [books, setBooks] = useState<Book[]>([]);
+  const [titleInput, setTitleInput] = useState("");
+  const [authorInput, setAuthorInput] = useState("");
+  const [message, setMessage] = useState<{ text: string; type: "error" | "success" } | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
-  }, [books]);
-
-  const addBook = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      const trimmed = title.trim();
-      if (!trimmed) return;
-      const book: Book = {
-        id: crypto.randomUUID(),
-        title: trimmed,
-        status: "Want to Read",
-      };
-      setBooks((prev) => [book, ...prev]);
-      setTitle("");
-    },
-    [title]
-  );
-
-  const changeStatus = useCallback((id: string, status: ReadingStatus) => {
-    setBooks((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status } : b))
-    );
+    setBooks(loadBooks());
   }, []);
 
-  const removeBook = useCallback((id: string) => {
-    setBooks((prev) => prev.filter((b) => b.id !== id));
+  const showMessage = useCallback((text: string, type: "error" | "success") => {
+    setMessage({ text, type });
+    if (messageTimer.current) clearTimeout(messageTimer.current);
+    messageTimer.current = setTimeout(() => setMessage(null), 4000);
   }, []);
 
-  const visibleBooks =
-    filter === "All" ? books : books.filter((b) => b.status === filter);
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedTitle = titleInput.trim();
+    if (!trimmedTitle) {
+      showMessage("Please enter a book title.", "error");
+      return;
+    }
+
+    if (isDuplicate(books, trimmedTitle)) {
+      showMessage("This book is already in your reading list.", "error");
+      return;
+    }
+
+    const newBook: Book = {
+      id: crypto.randomUUID(),
+      title: trimmedTitle.replace(/\s+/g, " "),
+      author: authorInput.trim(),
+      status: "want",
+      addedAt: Date.now(),
+    };
+
+    const updated = [...books, newBook];
+    setBooks(updated);
+    saveBooks(updated);
+    setTitleInput("");
+    setAuthorInput("");
+    showMessage(`"${newBook.title}" added to your list.`, "success");
+  };
+
+  const handleStatusChange = (id: string, status: Status) => {
+    const updated = books.map((b) => (b.id === id ? { ...b, status } : b));
+    setBooks(updated);
+    saveBooks(updated);
+  };
+
+  const handleDelete = (id: string) => {
+    const updated = books.filter((b) => b.id !== id);
+    setBooks(updated);
+    saveBooks(updated);
+  };
+
+  const filtered = filter === "all" ? books : books.filter((b) => b.status === filter);
+
+  const counts = {
+    all: books.length,
+    want: books.filter((b) => b.status === "want").length,
+    reading: books.filter((b) => b.status === "reading").length,
+    finished: books.filter((b) => b.status === "finished").length,
+  };
+
+  const filterTabs: Filter[] = ["all", "want", "reading", "finished"];
 
   return (
     <div className="app">
-      <header className="app__header">
-        <div className="app__header-inner">
-          <h1 className="app__title">Reading List</h1>
-          <p className="app__subtitle">
-            Track the books you want to read, are reading, and have finished.
-          </p>
-        </div>
+      <header className="header">
+        <h1>Reading List</h1>
+        <p>Track the books you're reading, want to read, and have finished.</p>
       </header>
 
-      <main className="app__main">
-        <form className="add-form" onSubmit={addBook}>
-          <input
-            className="add-form__input"
-            type="text"
-            placeholder="Enter a book title..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            aria-label="Book title"
-          />
-          <button className="add-form__btn" type="submit">
-            Add Book
-          </button>
-        </form>
+      <form className="add-form" onSubmit={handleAdd}>
+        <input
+          type="text"
+          placeholder="Book title"
+          value={titleInput}
+          onChange={(e) => setTitleInput(e.target.value)}
+          aria-label="Book title"
+        />
+        <input
+          type="text"
+          className="author-input"
+          placeholder="Author (optional)"
+          value={authorInput}
+          onChange={(e) => setAuthorInput(e.target.value)}
+          aria-label="Author"
+        />
+        <button type="submit">Add Book</button>
+      </form>
 
-        <div className="filters" role="tablist" aria-label="Filter by status">
-          {STATUS_FILTERS.map((f) => {
-            const active = filter === f;
-            const count =
-              f === "All" ? books.length : books.filter((b) => b.status === f).length;
-            return (
-              <button
-                key={f}
-                role="tab"
-                aria-selected={active}
-                className={`filter-chip${active ? " filter-chip--active" : ""}`}
-                onClick={() => setFilter(f)}
-              >
-                {f}
-                <span className="filter-chip__count">{count}</span>
-              </button>
-            );
-          })}
+      {message && <div className={`message ${message.type}`}>{message.text}</div>}
+
+      {books.length > 0 && (
+        <div className="filters">
+          {filterTabs.map((f) => (
+            <button
+              key={f}
+              className={`filter-btn ${filter === f ? "active" : ""}`}
+              onClick={() => setFilter(f)}
+            >
+              {f === "all" ? "All" : STATUS_LABELS[f]}
+              <span className="filter-count">{counts[f]}</span>
+            </button>
+          ))}
         </div>
+      )}
 
-        {visibleBooks.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state__icon" aria-hidden="true">
-              <BookIcon />
-            </div>
-            <p className="empty-state__text">
-              Your reading list is empty. Add your first book.
-            </p>
-          </div>
-        ) : (
-          <ul className="book-grid">
-            {visibleBooks.map((book) => (
-              <li key={book.id} className="book-card">
-                <div className="book-card__top">
-                  <span
-                    className="book-card__status-dot"
-                    style={{ background: STATUS_COLORS[book.status] }}
-                    aria-hidden="true"
-                  />
-                  <button
-                    className="book-card__delete"
-                    onClick={() => removeBook(book.id)}
-                    aria-label={`Remove ${book.title}`}
-                    title="Remove"
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
-
-                <h2 className="book-card__title" title={book.title}>
-                  {book.title}
-                </h2>
-
-                <div className="book-card__status-pill" style={{ color: STATUS_COLORS[book.status] }}>
-                  {book.status}
-                </div>
-
-                <div className="book-card__status-buttons">
-                  {STATUS_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      className={`status-btn${
-                        book.status === opt ? " status-btn--active" : ""
-                      }`}
-                      style={
-                        book.status === opt
-                          ? {
-                              background: STATUS_COLORS[opt],
-                              borderColor: STATUS_COLORS[opt],
-                              color: "#fff",
-                            }
-                          : undefined
-                      }
-                      onClick={() => changeStatus(book.id, opt)}
-                    >
-                      {opt}
-                    </button>
+      {filtered.length > 0 ? (
+        <div className="book-list">
+          {filtered.map((book) => (
+            <div key={book.id} className="book-item">
+              <div className="book-info">
+                <div className="book-title">{book.title}</div>
+                {book.author && <div className="book-author">{book.author}</div>}
+              </div>
+              <div className="book-actions">
+                <span className={`status-badge ${book.status}`}>{STATUS_LABELS[book.status]}</span>
+                <select
+                  className="status-select"
+                  value={book.status}
+                  onChange={(e) => handleStatusChange(book.id, e.target.value as Status)}
+                  aria-label="Change status"
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </option>
                   ))}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </main>
-
-      <footer className="app__footer">
-        <p>Your list is saved on this device only.</p>
-      </footer>
+                </select>
+                <button className="delete-btn" onClick={() => handleDelete(book.id)} aria-label="Remove book">
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <h3>{books.length === 0 ? "Your shelf is empty" : "No books in this category"}</h3>
+          <p>{books.length === 0 ? "Add a book above to get started." : "Try a different filter."}</p>
+        </div>
+      )}
     </div>
-  );
-}
-
-function BookIcon() {
-  return (
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
   );
 }
