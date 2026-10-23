@@ -142,6 +142,44 @@ body {
   }
 }
 
+/* Summary */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.2s;
+}
+
+.summary-card:hover {
+  border-color: var(--text-dim);
+}
+
+.summary-value {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.summary-label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 /* Filter tabs */
 .filters {
   display: flex;
@@ -317,6 +355,22 @@ body {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .summary {
+    gap: 8px;
+  }
+
+  .summary-card {
+    padding: 14px 8px;
+  }
+
+  .summary-value {
+    font-size: 1.4rem;
+  }
+
+  .summary-label {
+    font-size: 0.68rem;
   }
 
   .book-actions {

@@ -37,6 +37,11 @@ export default function App() {
       return;
     }
 
+    if (trimmedTitle.length > 60) {
+      showMessage("Book title must be 60 characters or fewer.", "error");
+      return;
+    }
+
     if (isDuplicate(books, trimmedTitle)) {
       showMessage("This book is already in your reading list.", "error");
       return;
@@ -110,6 +115,23 @@ export default function App() {
       {message && <div className={`message ${message.type}`}>{message.text}</div>}
 
       {books.length > 0 && (
+        <div className="summary">
+          <div className="summary-card">
+            <span className="summary-value">{books.length}</span>
+            <span className="summary-label">Total Books</span>
+          </div>
+          <div className="summary-card">
+            <span className="summary-value">{counts.reading}</span>
+            <span className="summary-label">Currently Reading</span>
+          </div>
+          <div className="summary-card">
+            <span className="summary-value">{counts.finished}</span>
+            <span className="summary-label">Finished</span>
+          </div>
+        </div>
+      )}
+
+      {books.length > 0 && (
         <div className="filters">
           {filterTabs.map((f) => (
             <button
@@ -155,8 +177,8 @@ export default function App() {
         </div>
       ) : (
         <div className="empty-state">
-          <h3>{books.length === 0 ? "Your shelf is empty" : "No books in this category"}</h3>
-          <p>{books.length === 0 ? "Add a book above to get started." : "Try a different filter."}</p>
+          <h3>{books.length === 0 ? "Your reading list is empty. Add your first book." : "No books in this category"}</h3>
+          <p>{books.length === 0 ? "" : "Try a different filter."}</p>
         </div>
       )}
     </div>
