@@ -1,0 +1,40 @@
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-muted: #f1f1ee;
+  --text: #1a1a1a;
+  --text-muted: #6b6b6b;
+  --border: #e4e4e0;
+  --primary: #2f5d50;
+  --primary-hover: #264a40;
+  --accent: #c98a3d;
+  --success: #2f7a4f;
+  --warning: #c98a3d;
+  --info: #3a6ea5;
+  --error: #b94a4a;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.06);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
